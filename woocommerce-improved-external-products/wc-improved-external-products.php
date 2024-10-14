@@ -3,14 +3,14 @@
  * Plugin Name:          Improved External Products for WooCommerce
  * Plugin URI:           https://wordpress.org/plugins/woocommerce-improved-external-products/
  * Description:          Opens External/Affiliate products in a new tab.
- * Version:              1.6.4
+ * Version:              1.6.5
  * Author:               WP Overnight
  * Author URI:           https://wpovernight.com/
  * License:              GPLv2 or later
  * License URI:          https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  * Text Domain:          woocommerce-improved-external-products
  * WC requires at least: 3.0
- * WC tested up to:      9.0
+ * WC tested up to:      9.4
  */
 
 class ImprovedExternalProducts {
@@ -18,7 +18,7 @@ class ImprovedExternalProducts {
 	/**
 	 * @var string
 	 */
-	protected $plugin_version = '1.6.4';
+	protected $plugin_version = '1.6.5';
 	
 	/**
 	 * @var WPO_WCIEP_Settings
@@ -36,7 +36,13 @@ class ImprovedExternalProducts {
 	public function __construct() {
 		
 		// Load plugin text domain.
-		add_action( 'plugins_loaded', array( $this, 'translations' ) );
+		add_action( 'init', array( $this, 'translations' ), 9 );
+		
+		// Modify external product links
+		add_action( 'init',array( $this,'modify_external_product_links' ) );
+		
+		// Get included files
+		add_action( 'wp_loaded', array( $this,'includes' ), 9 );
 
 		$this->define( 'WC_IEP_VERSION', $this->plugin_version );
 		
@@ -49,10 +55,6 @@ class ImprovedExternalProducts {
 		// Redirect to settings page on activation
 		register_activation_hook(__FILE__, array($this,'iepp_activate'));
 		add_action('admin_init', array($this,'iepp_redirect'));
-		// Get included files
-		add_action('wp_loaded',array($this,'includes'));
-
-		add_action('init',array($this,'modify_external_product_links'));
 		
 		// Display the admin notification
 		add_action( 'admin_notices', array( $this, 'go_pro_notice' ) );
