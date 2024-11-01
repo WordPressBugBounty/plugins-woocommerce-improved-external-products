@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name:          Improved External Products for WooCommerce
- * Plugin URI:           https://wordpress.org/plugins/woocommerce-improved-external-products/
+ * Plugin URI:           https://wpovernight.com/downloads/improved-external-products-pro/
  * Description:          Opens External/Affiliate products in a new tab.
- * Version:              1.6.5
+ * Version:              1.6.7
  * Author:               WP Overnight
  * Author URI:           https://wpovernight.com/
  * License:              GPLv2 or later
@@ -13,12 +13,16 @@
  * WC tested up to:      9.4
  */
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit; // Exit if accessed directly
+}
+
 class ImprovedExternalProducts {
 	
 	/**
 	 * @var string
 	 */
-	protected $plugin_version = '1.6.5';
+	protected $plugin_version = '1.6.7';
 	
 	/**
 	 * @var WPO_WCIEP_Settings
@@ -45,9 +49,6 @@ class ImprovedExternalProducts {
 		add_action( 'wp_loaded', array( $this,'includes' ), 9 );
 
 		$this->define( 'WC_IEP_VERSION', $this->plugin_version );
-		
-		// Print the js
-		add_action( 'wp_footer', array($this,'add_js_to_footer') );
 
 		// Redirect to the Settings Page
 		// Settings Page URL
@@ -106,22 +107,25 @@ class ImprovedExternalProducts {
 	 */
 	public function go_pro_notice() {
 		$screen = $this->order_util->custom_order_table_screen();
-		
-		if ( ( isset( $_REQUEST['page'] ) && 'iepp_options_page' != $_REQUEST['page'] ) || ! in_array( $screen, array( 'shop_order', 'edit-shop_order', 'woocommerce_page_wc-orders', 'edit-product', 'product' ) ) ) {
+
+		if (
+			( isset( $_REQUEST['page'] ) && 'iepp_options_page' !== $_REQUEST['page'] ) || // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			! in_array( $screen, array( 'shop_order', 'edit-shop_order', 'woocommerce_page_wc-orders', 'edit-product', 'product' ) )
+		) {
 			return;
 		}
 				
-		if ( get_option( 'wpo_iepp_pro_notice_dismissed' ) !== false || get_option( 'iepp_go_pro_notice' ) == 'gopro' ) {
+		if ( get_option( 'wpo_iepp_pro_notice_dismissed' ) !== false || 'gopro' === get_option( 'iepp_go_pro_notice' ) ) {
 			return;
 		} else {
-			if ( isset( $_GET['wpo_iepp_dismis_pro'] ) ) {
+			if ( isset( $_GET['wpo_iepp_dismis_pro'] ) && isset( $_GET['_wpnonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'wpo_iepp_dismis_pro_notice' ) ) {
 				update_option( 'wpo_iepp_pro_notice_dismissed', true );
 				return;
 			}
 
 			// keep track of how many days this notice is show so we can remove it after 7 days
 			$notice_shown_on = get_option( 'wpo_iepp_pro_notice_shown', array() );
-			$today = date('Y-m-d');
+			$today = gmdate('Y-m-d');
 			if ( !in_array($today, $notice_shown_on) ) {
 				$notice_shown_on[] = $today;
 				update_option( 'wpo_iepp_pro_notice_shown', $notice_shown_on );
@@ -134,15 +138,15 @@ class ImprovedExternalProducts {
 
 			?>
 			<div class="notice notice-info is-dismissible wpo-iepp-pro-notice">
-				<h3><?php _e( 'Thank you for using Improved External Products! Check out our pro version:', 'woocommerce-improved-external-products' ); ?></h3>
+				<h3><?php esc_html_e( 'Thank you for using Improved External Products! Check out our pro version:', 'woocommerce-improved-external-products' ); ?></h3>
 				<ul class="ul-square">
-					<li><?php _e( 'Ability to open external products in a new tab from product archives', 'woocommerce-improved-external-products' ) ?></li>
-					<li><?php _e( 'Set tab action on a per-product basis', 'woocommerce-improved-external-products' ) ?></li>
-					<li><?php _e( 'Set tab action on a product category basis', 'woocommerce-improved-external-products' ) ?></li>
-					<li><?php _e( 'Priority Customer Support', 'woocommerce-improved-external-products' ) ?></li>
+					<li><?php esc_html_e( 'Ability to open external products in a new tab from product archives', 'woocommerce-improved-external-products' ) ?></li>
+					<li><?php esc_html_e( 'Set tab action on a per-product basis', 'woocommerce-improved-external-products' ) ?></li>
+					<li><?php esc_html_e( 'Set tab action on a product category basis', 'woocommerce-improved-external-products' ) ?></li>
+					<li><?php esc_html_e( 'Priority Customer Support', 'woocommerce-improved-external-products' ) ?></li>
 				</ul>
-				<p><a href="https://wpovernight.com/downloads/improved-external-products-pro/" target="_blank"><?php _e( 'Click here to go Pro now!', 'woocommerce-improved-external-products' ) ?></a></p>
-				<p><a href="<?php echo esc_url( add_query_arg( 'wpo_iepp_dismis_pro', true ) ); ?>" class="wpo-iepp-dismiss"><?php _e( 'Dismiss this notice', 'woocommerce-improved-external-products' ); ?></a></p>
+				<p><a href="https://wpovernight.com/downloads/improved-external-products-pro/" target="_blank"><?php esc_html_e( 'Click here to go Pro now!', 'woocommerce-improved-external-products' ) ?></a></p>
+				<p><a href="<?php echo esc_url( wp_nonce_url( add_query_arg( 'wpo_iepp_dismis_pro', true ), 'wpo_iepp_dismis_pro_notice' ) ); ?>" class="wpo-iepp-dismiss"><?php esc_html_e( 'Dismiss this notice', 'woocommerce-improved-external-products' ); ?></a></p>
 			</div>
 			<?php
 		}
@@ -150,22 +154,26 @@ class ImprovedExternalProducts {
 
 	public function backend_scripts_styles() {
 		$screen = $this->order_util->custom_order_table_screen();
-		
-		if ( ( isset( $_REQUEST['page'] ) && 'iepp_options_page' == $_REQUEST['page'] ) || in_array( $screen, array( 'shop_order', 'edit-shop_order', 'woocommerce_page_wc-orders', 'edit-product', 'product' ) ) ) {
+
+		if (
+			( isset( $_REQUEST['page'] ) && 'iepp_options_page' === $_REQUEST['page'] ) || // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			in_array( $screen, array( 'shop_order', 'edit-shop_order', 'woocommerce_page_wc-orders', 'edit-product', 'product' ) )
+		) {
 			wp_enqueue_script(
 				'wpo-iepp-admin',
 				untrailingslashit( plugins_url( '/', __FILE__ ) ) . '/assets/js/admin-script.js',
 				array( 'jquery' ),
-				WC_IEP_VERSION
+				WC_IEP_VERSION,
+				true
 			);
 		}
 	}
 
 	public function iepp_redirect() {
-		if (get_option('iepp_do_activation_redirect', false)) {
-			delete_option('iepp_do_activation_redirect');
-			if(!isset($_GET['activate-multi'])){
-				wp_redirect(IEPP_SETTINGS_URL);
+		if ( get_option( 'iepp_do_activation_redirect', false ) ) {
+			delete_option( 'iepp_do_activation_redirect' );
+			if ( ! isset( $_GET['activate-multi'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				wp_redirect( IEPP_SETTINGS_URL );
 			}
 		}
 	}
@@ -193,7 +201,7 @@ class ImprovedExternalProducts {
 
 		$target     = $this->determine_link_target( $product->get_id() );
 		$price_html = $product->get_price_html();
-		if ( $target == true ) {
+		if ( $target ) {
 			$target = '_blank';
 		} else {
 			$target = '_self';
@@ -209,7 +217,7 @@ class ImprovedExternalProducts {
 			$html = str_replace( '{target}', esc_attr( $target ), $html );
 			$html = str_replace( '{button_text}', esc_html( $button_text ), $html );
 			$html = str_replace( '{price_html}', esc_html( $price_html ), $html );
-			echo $html;
+			echo wp_kses_post( $html );
 		} else {
 		?>
 			<p class="cart">
@@ -231,35 +239,6 @@ class ImprovedExternalProducts {
 			require_once( 'includes/class-wciep-settings.php' );
 			// Get settings
 			$this->settings = WPO_WCIEP_Settings::instance();
-		}
-	}
-
-	public function add_js_to_footer(){
-		$options = get_option('woocommerce-improved-external-products');
-		//$extra_selectors = $options['additional_javascript_selectors'];
-		/* Add code to product page */
-		if(is_product()){
-			$product = wc_get_product(get_the_ID());
-			if( ! ( $product instanceof \WC_Product ) ) return;
-
-			/* If the product is external */
-			if($product->is_type( 'external' )){
-				if($this->determine_link_target( $product->get_id() ) == true){
-					$target = '_blank';
-				} else {
-					$target = '';
-				}
-				/*
-				if($target == '_blank'){
-					?>
-					<script type="text/javascript">
-						jQuery( document ).ready(function( $ ) {
-							$('a.single_add_to_cart_button <?php echo esc_attr( $extra_selectors ); ?>').attr('target','_blank');
-						});
-					</script>
-					<?php
-				}*/
-			}
 		}
 	}
 
